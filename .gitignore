@@ -1,0 +1,5 @@
+outputs*/
+data/
+downloaded_pickapic_v2/
+*.egg-info/
+wandb/
