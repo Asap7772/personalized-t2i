@@ -1,9 +1,13 @@
 num_shards=8
+per_user=1
 which_shards=(0 1 2 3 4 5 6 7)
 gpus=(0 1 2 3 4 5 6 7)
 
 exp_num=0
 dry_run=false
+output_dir="/home/anikait.singh/personalized-t2i/data/single_user_emb/"
+mkdir -p $output_dir
+
 which_exp=${1:--1}
 if [ $which_exp -eq -1 ]; then
     echo "Running all experiments"
@@ -21,6 +25,7 @@ for which_shard in ${which_shards[@]}; do
     command="python /home/anikait.singh/personalized-t2i/pick_a_pick_user_emb.py \
         --num_chunks $num_shards \
         --which_chunk $which_shard \
+        --per_user $per_user \
     "
     
     echo $command

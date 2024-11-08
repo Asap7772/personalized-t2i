@@ -20,10 +20,11 @@ flags.DEFINE_integer('hidden_size', 512, 'Hidden size of the model')
 flags.DEFINE_integer('num_layers', 4, 'Number of layers in the model')
 flags.DEFINE_integer('num_classes', 304, 'Number of unique users')
 flags.DEFINE_string('dataset_name', 'Asap7772/emb_classify', 'Name of the model')
-flags.DEFINE_string('wandb_project', 'user-classifier-0907', 'Wandb project name')
+flags.DEFINE_string('wandb_project', 'user-classifier-rerun-0907', 'Wandb project name')
 flags.DEFINE_float('warmup_ratio', 0.1, 'Warmup ratio for the scheduler')
 flags.DEFINE_float('dropout', 0.1, 'Dropout probability')
 flags.DEFINE_integer('num_test_batches', 10, 'Number of test batches to evaluate')
+flags.DEFINE_string('output_dir', '/home/anikait.singh/personalized-t2i/checkpoints/user_classifier', 'Output directory to save the model')
 
 def get_accuracy(probs, class_, k=1):
     if k == 1:
@@ -71,6 +72,11 @@ class UserClassifier(nn.Module):
         return x
     
 def main(_):
+    random_str = np.random.bytes(4).hex()
+    unique_run_name = f'{FLAGS.dataset_name}-{FLAGS.batch_size}-{FLAGS.epochs}-{FLAGS.learning_rate}-{FLAGS.weight_decay}-{FLAGS.input_size}-{FLAGS.hidden_size}-{FLAGS.num_layers}'
+    unique_run_name = unique_run_name.replace('/', '-').replace(' ', '_').replace('.', '_')
+    unique_run_name = f'{unique_run_name}-{random_str}'
+    
     ds = datasets.load_dataset(FLAGS.dataset_name)
     remove_cols = list(ds['train'].column_names)
     remove_cols.remove('class')
@@ -138,6 +144,8 @@ def main(_):
             train_stats['top8_accuracy'] = get_accuracy(probs, class_, k=8)
             train_stats['top16_accuracy'] = get_accuracy(probs, class_, k=16)
             train_stats['top32_accuracy'] = get_accuracy(probs, class_, k=32)
+            train_stats['epoch'] = exact_epoch
+            train_stats['lr'] = optimizer.param_groups[0]['lr']
             
             desired_prob = probs[torch.arange(probs.size(0)), class_]
             train_stats['desired_prob'] = desired_prob.mean().item()
@@ -181,6 +189,14 @@ def main(_):
             else:
                 print(f'Epoch: {exact_epoch}, Step: {i}, Loss: {loss.item()}, Accuracy: {accuracy}')
             curr_step += 1
+        
+        # Save model
+        output_dir = os.path.join(FLAGS.output_dir, unique_run_name, f'epoch_{epoch}')
+        os.makedirs(output_dir, exist_ok=True)
+        torch.save(model.state_dict(), os.path.join(output_dir, 'model.pth'))
+        torch.save(optimizer.state_dict(), os.path.join(output_dir, 'optimizer.pth'))
+        torch.save(scheduler.state_dict(), os.path.join(output_dir, 'scheduler.pth'))
+        
     wandb.finish()
     
     

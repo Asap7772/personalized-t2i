@@ -34,6 +34,7 @@ flags.DEFINE_integer('which_chunk', 0, 'Which chunk to process')
 flags.DEFINE_float('temperature', 0.7, 'Temperature to use for inference')
 flags.DEFINE_integer('max_new_tokens', 1024, 'Max new tokens to generate')
 flags.DEFINE_integer('save_every', 100, 'Save every n examples')
+flags.DEFINE_integer('per_user', -1, 'Number of examples per user to generate')
 
 def get_image_from_bytes(byte_string):
     if isinstance(byte_string, list):
@@ -46,13 +47,18 @@ def get_image_from_bytes(byte_string):
         raise e
     return image
 
-def get_all_shots(user_ds, num_shots):
+def get_all_shots(user_ds, num_shots, per_user):
     user_df = user_ds.to_pandas()
     shuffled_user_df = user_df.sample(frac=1)
     
     user_df_chunks = [shuffled_user_df[i:i+num_shots] for i in range(0, len(shuffled_user_df), num_shots)]
     if len(user_df_chunks[-1]) < num_shots:
         user_df_chunks.pop()
+        
+    if per_user > 0:
+        curr_num = len(user_df_chunks)
+        per_user = min(per_user, curr_num)
+        user_df_chunks = user_df_chunks[:per_user]
     
     all_shots = []
     for user_df_chunks in user_df_chunks:
@@ -97,6 +103,7 @@ def main(_):
         end_idx = start_idx + shard_size
         unique_users = sorted_unique_users[start_idx:end_idx]
         
+        per_user = FLAGS.per_user
         num_shots = FLAGS.num_shots
         pretrained = FLAGS.pretrained
         model_name = FLAGS.model_name
@@ -127,7 +134,7 @@ def main(_):
             if len(user_ds) < num_shots:
                 continue
             
-            all_shots = get_all_shots(user_ds, num_shots)
+            all_shots = get_all_shots(user_ds, num_shots, per_user)
             for shots in all_shots:
                 assert len(shots) == num_shots, "Not enough shots"
                 
